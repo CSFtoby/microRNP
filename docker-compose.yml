@@ -20,4 +20,3 @@ services:
 networks:
   network1:
     name: safa-network
-    external: true
