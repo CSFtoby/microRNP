@@ -14,8 +14,8 @@ logger = get_logger(__name__)
 # Inicializar el cliente de Oracle
 oracledb.init_oracle_client(lib_dir="/opt/oracle/instantclient_21_10")
 
-app = FastAPI(title="Microservice RECO payment integration")
 settings = Settings()
+app = FastAPI(title=settings.MICROSERVICE_NAME)
 
 # Configuración de CORS
 app.add_middleware(
@@ -113,95 +113,15 @@ async def shutdown():
 
 @app.post("/query")
 async def query(payment_request: PaymentRequest):
-    CURRENCY = 'LPS'
-    CODE_COOPSAFA = '8'
     logger.info("Query requested")
     # Guardar en base de datos
     conn = get_db_connection()
     try:
         # Deshabilitar verificación SSL (similar al código C#)
         requests.packages.urllib3.disable_warnings()
-
-        # Preparar el XML SOAP
-        soap_body = f"""<?xml version='1.0' encoding='utf-8'?>
-        <soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
-                      xmlns:xsd='http://www.w3.org/2001/XMLSchema'
-                      xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'>
-            <soap:Body>
-                <ConsultaPago xmlns='http://tempuri.org/'>
-                    <CodigoBanco>{CODE_COOPSAFA}</CodigoBanco>
-                    <CodigoSucursal>{payment_request.code_subsidiary}</CodigoSucursal>
-                    <CodigoUsuario>{payment_request.code_user}</CodigoUsuario>
-                    <CodigoCliente>{payment_request.code_customer}</CodigoCliente>
-                    <CodigoMoneda>{CURRENCY}</CodigoMoneda>
-                </ConsultaPago>
-            </soap:Body>
-        </soap:Envelope>"""
-
-        # Configurar headers
-        headers = {
-            'Content-Type': 'text/xml',
-            'SOAPAction': 'http://tempuri.org/ConsultaPago'
-        }
-
-        # Hacer la petición al servicio SOAP
-        response = requests.post(
-            "https://host.docker.internal:8888/servicios.asmx",
-            # 'https://localhost:8888/servicios.asmx',
-            # settings.SOAP_URL,
-            data=soap_body,
-            headers=headers,
-            verify=False  # Equivalente a ServerCertificateValidationCallback
-        )
-
-        response.raise_for_status()
-        response_text = response.text
-
-        # Analizar el XML
-        root = ET.fromstring(response_text)
-
-        query_result = root.find(".//ConsultaPago")
-        if query_result is None:
-            logger.error(f"No se encontró resultado en la consulta: {response_text}")
-            return HTTPException(status_code=400, detail="No se encontró resultado en la consulta")
-
-        customer_code = query_result.find("CodigoCliente").text
-        customer_name = query_result.find("NombreCliente").text
-        invoice_date = query_result.find("Fecha").text
-        invoice_price = float(query_result.find("Valor").text)
-        invoice_local_price = float(query_result.find("ValorLocal").text)
-        code_currency = query_result.find("Moneda").text
-
-        cursor = conn.cursor()
-        # Definir una variable para almacenar el valor de la secuencia
-        new_id = cursor.var(int)
-
-        cursor.execute("""
-            INSERT INTO SPUB.AV_RECO_ENVIOS(
-                CODIGO_RECO_BANCO, CODIGO_FILIAL, CODIGO_USUARIO,
-                CODIGO_CLIENTE, CODIGO_MONEDA, ESTADO, PAGADO,
-                NOMBRE_CLIENTE, FECHA_FACTURA, VALOR_FACTURA, VALOR_LOCAL_FACTURA
-            )
-            VALUES (
-                :1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11
-            )
-            RETURNING SECUENCIA INTO :12
-        """, [
-            CODE_COOPSAFA, payment_request.code_subsidiary, payment_request.code_user,
-            customer_code, code_currency, 'CON', 'N',
-            customer_name, invoice_date, invoice_price, invoice_local_price, new_id
-        ])
-
-        conn.commit()
-        new_id = new_id.getvalue()
-        data = {
-            "id": new_id[0],
-            "customer_code": customer_code,
-            "customer_name": customer_name,
-            "invoice_date": invoice_date,
-            "invoice_price": invoice_price,
-            "invoice_local_price": invoice_local_price
-        }
+        # Lógica para realizar la consulta
+        # Por ejemplo: cursor.execute("SELECT * FROM payments WHERE ...", data)
+        data = {}
         return {"status": "success", "data": data}
 
     except requests.RequestException as e:
