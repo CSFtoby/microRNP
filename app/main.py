@@ -7,7 +7,6 @@ import time
 import requests
 import xml.etree.ElementTree as ET
 from app.models.requests import PaymentRequest
-from datetime import datetime
 
 # Configurar logger
 logger = get_logger(__name__)
@@ -53,6 +52,7 @@ def get_db_connection():
         logger.info(f"Port: {settings.DB_PORT}")
         logger.info(f"Service Name: {settings.DB_SERVICE_NAME}")
 
+        # Crear el DSN
         dsn = f"""(DESCRIPTION=
                     (ADDRESS=
                         (PROTOCOL=TCP)
@@ -70,7 +70,7 @@ def get_db_connection():
         logger.info("Intentando conexión...")
         connection = oracledb.connect(
             user=settings.DB_USER,
-            password=settings.DB_PASSWORD ,  # Ocultamos la contraseña en logs
+            password=settings.DB_PASSWORD,  # Ocultamos la contraseña en logs
             dsn=dsn,
             encoding="UTF-8",
             nencoding="UTF-8",
@@ -116,6 +116,8 @@ async def query(payment_request: PaymentRequest):
     CURRENCY = 'LPS'
     CODE_COOPSAFA = '8'
     logger.info("Query requested")
+    # Guardar en base de datos
+    conn = get_db_connection()
     try:
         # Deshabilitar verificación SSL (similar al código C#)
         requests.packages.urllib3.disable_warnings()
@@ -144,7 +146,9 @@ async def query(payment_request: PaymentRequest):
 
         # Hacer la petición al servicio SOAP
         response = requests.post(
-            settings.SOAP_URL,
+            "https://host.docker.internal:8888/servicios.asmx",
+            # 'https://localhost:8888/servicios.asmx',
+            # settings.SOAP_URL,
             data=soap_body,
             headers=headers,
             verify=False  # Equivalente a ServerCertificateValidationCallback
@@ -168,8 +172,6 @@ async def query(payment_request: PaymentRequest):
         invoice_local_price = float(query_result.find("ValorLocal").text)
         code_currency = query_result.find("Moneda").text
 
-        # Guardar en base de datos
-        conn = get_db_connection()
         cursor = conn.cursor()
         # Definir una variable para almacenar el valor de la secuencia
         new_id = cursor.var(int)
@@ -178,7 +180,7 @@ async def query(payment_request: PaymentRequest):
             INSERT INTO SPUB.AV_RECO_ENVIOS(
                 CODIGO_RECO_BANCO, CODIGO_FILIAL, CODIGO_USUARIO,
                 CODIGO_CLIENTE, CODIGO_MONEDA, ESTADO, PAGADO,
-                NOMBRE_CLIENTE, FECHA_FACTURA, VALOR_FACTURA, VALOR_FACTURA_LOCAL
+                NOMBRE_CLIENTE, FECHA_FACTURA, VALOR_FACTURA, VALOR_LOCAL_FACTURA
             )
             VALUES (
                 :1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11
@@ -193,7 +195,7 @@ async def query(payment_request: PaymentRequest):
         conn.commit()
         new_id = new_id.getvalue()
         data = {
-            "id": new_id,
+            "id": new_id[0],
             "customer_code": customer_code,
             "customer_name": customer_name,
             "invoice_date": invoice_date,

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build: .
@@ -11,12 +9,8 @@ services:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       - DB_SERVICE_NAME=${DB_SERVICE_NAME}
-    networks:
-      - network1
+      - SOAP_URL=${SOAP_URL}
     volumes:
       - .:/app
       - ./logs:/app/logs
 
-networks:
-  network1:
-    name: safa-network
