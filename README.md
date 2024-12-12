@@ -18,6 +18,14 @@ git clone https://github.com/Cooperativa-Sagrada-Familia/microservicio-template-
 
 ```
 
+## Cambiar remote origin
+
+Esto es importante para mantener el orden y no hacer push al repositorio base
+```bash
+git remote set-url origin URL_REPOSITORIO
+```
+
+
 ## Crear .env con las variables de entorno
 
 ```bash
