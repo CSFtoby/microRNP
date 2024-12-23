@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Microservicio template para desarrollo de microservicios con python y FastAPI
 
 ## Requisitos
@@ -84,3 +85,6 @@ local: <http://localhost:8000/docs>
 ## auto redoc
 
 local: <http://localhost:8000/redoc>
+=======
+# microRNP
+>>>>>>> 279e3e6629f132243c781bd0485f04e876c7fbee
